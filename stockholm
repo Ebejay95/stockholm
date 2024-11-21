@@ -1,0 +1,41 @@
+#!/usr/bin/python3
+import sys
+import argparse
+
+
+def stock_print(tobeprinted):
+    if not silent:
+        print(tobeprinted)
+
+def main():
+    global silent
+    try:
+        parser = argparse.ArgumentParser(
+            description="FT_OTP: Generates one-time passwords (TOTP/HOTP)."
+        )
+        parser.add_argument(
+            "-v", "--version",
+            action="store_true",
+            help="to show the version of the program"
+        )
+        parser.add_argument(
+            "-r", "--reverse",
+            action="store_true",
+            help="reverse the infection"
+        )
+        parser.add_argument(
+            "-s", "--silent",
+            action="store_true",
+            help="silent mode"
+        )
+        
+        args = parser.parse_args()
+        silent = args.silent
+    
+        stock_print("Stockholm")
+    except Exception as e:
+        print(f'Error: {e}')
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
