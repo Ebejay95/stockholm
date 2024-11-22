@@ -1,7 +1,7 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 import sys
 import argparse
-
+from colorama import Fore, Style
 
 def stock_print(tobeprinted):
     if not silent:
@@ -9,9 +9,10 @@ def stock_print(tobeprinted):
 
 def main():
     global silent
+    global encrypt
     try:
         parser = argparse.ArgumentParser(
-            description="FT_OTP: Generates one-time passwords (TOTP/HOTP)."
+            description="Encrypts parts of you system"
         )
         parser.add_argument(
             "-v", "--version",
@@ -31,10 +32,20 @@ def main():
         
         args = parser.parse_args()
         silent = args.silent
-    
-        stock_print("Stockholm")
+        decrypt = args.reverse
+        if args.version:
+            if silent or decrypt:
+                print(f'{Fore.RED}Dont combine any other option with -v or --version{Style.RESET_ALL}')
+            else:
+                stock_print(f'{Fore.BLUE}v1.0 (stable){Style.RESET_ALL}')
+        else:
+            stock_print(f'{Fore.YELLOW}STOCKHOLM{Style.RESET_ALL}\n')
+            if decrypt:
+                stock_print(f'{Fore.GREEN}Decrypting ...{Style.RESET_ALL}')
+            else:
+                stock_print(f'{Fore.MAGENTA}Encrypting ...{Style.RESET_ALL}')
     except Exception as e:
-        print(f'Error: {e}')
+        print(f'{Fore.RED}Error: {e}{Style.RESET_ALL}')
         sys.exit(1)
 
 if __name__ == "__main__":
