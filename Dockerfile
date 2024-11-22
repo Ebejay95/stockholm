@@ -8,6 +8,7 @@ RUN apt update && apt install -y --no-install-recommends \
     python3-venv \
     exiftool \
     oathtool \
+    sudo \
     && apt clean && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/venv && \
